@@ -1,25 +1,19 @@
 
-name: YouTube Agent - Script Generator
+name: Gemini Model Check
 
 on:
   workflow_dispatch:
-    inputs:
-      topic:
-        description: "What should the YouTube video be about?"
-        required: true
-        type: string
 
 permissions:
   contents: read
 
 jobs:
-  generate-script:
+  check-models:
     runs-on: ubuntu-latest
     steps:
-      - name: Generate YouTube script with Gemini
+      - name: List available Gemini models
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          VIDEO_TOPIC: ${{ inputs.topic }}
         run: |
           python - <<'PY'
           import json
@@ -27,77 +21,26 @@ jobs:
           import urllib.request
           import urllib.error
 
-          api_key = os.environ.get("GEMINI_API_KEY")
-          topic = os.environ["VIDEO_TOPIC"]
-
-          if not api_key:
-              raise SystemExit("GEMINI_API_KEY secret is missing.")
-
-          prompt = f"""
-          Create a YouTube video script about: {topic}
-
-          Include:
-          1. Three alternative opening hooks.
-          2. A complete, natural spoken script.
-          3. Retention beats and suggested visual changes.
-          4. A closing call to action.
-          5. A title and description.
-
-          Do not invent facts or statistics. Flag claims that need
-          verification. Make the script engaging but accurate.
-          """
-
-          url = (
-              "https://generativelanguage.googleapis.com/"
-              "v1beta/models/gemini-3.5-flash-lite:generateContent"
-          )
-
-          payload = {
-              "contents": [{
-                  "parts": [{"text": prompt}]
-              }]
-          }
+          url = "https://generativelanguage.googleapis.com/v1beta/models"
 
           request = urllib.request.Request(
               url,
-              data=json.dumps(payload).encode("utf-8"),
               headers={
-                  "Content-Type": "application/json",
-                  "x-goog-api-key": api_key
-              },
-              method="POST"
+                  "x-goog-api-key": os.environ["GEMINI_API_KEY"]
+              }
           )
 
           try:
-              with urllib.request.urlopen(request, timeout=90) as response:
-                  result = json.loads(response.read().decode("utf-8"))
+              with urllib.request.urlopen(request, timeout=30) as response:
+                  data = json.loads(response.read().decode("utf-8"))
+
+              for model in data.get("models", []):
+                  methods = model.get("supportedGenerationMethods", [])
+                  if "generateContent" in methods:
+                      print(model.get("name", "unknown"))
+
           except urllib.error.HTTPError as error:
-              print("Gemini API returned HTTP", error.code)
-              print(error.read().decode("utf-8")[:2000])
+              print("Model listing failed with HTTP", error.code)
+              print(error.read().decode("utf-8")[:1500])
               raise SystemExit(1)
-
-          candidates = result.get("candidates", [])
-          if not candidates:
-              raise SystemExit("Gemini returned no script.")
-
-          parts = candidates[0].get("content", {}).get("parts", [])
-          script = "\n".join(
-              part["text"] for part in parts if "text" in part
-          )
-
-          if not script.strip():
-              raise SystemExit("Gemini returned empty text.")
-
-          with open("youtube_script.md", "w", encoding="utf-8") as file:
-              file.write(script)
-
-          print("SCRIPT GENERATED SUCCESSFULLY")
-          print(script)
           PY
-
-      - name: Save script as downloadable artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: youtube-script
-          path: youtube_script.md
-          retention-days: 7
