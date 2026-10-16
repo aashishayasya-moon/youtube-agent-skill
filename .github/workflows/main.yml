@@ -19,12 +19,13 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Check Python environment
+      - name: Score sample YouTube hooks
+        working-directory: skills/yt-script
         run: |
-          python --version
-          python -c "import json; print('YouTube Agent cloud runner is ready!')"
+          printf '%s\n' \
+            "I tested this for 7 days. Here is what changed." \
+            "Three mistakes beginners make when learning AI." \
+            "Before you buy another tool, try this first." \
+            > sample_hooks.txt
 
-      - name: List skill files
-        run: |
-          echo "Checking repository structure..."
-          find skills -maxdepth 3 -type f | head -80
+          python hookscore.py --json sample_hooks.txt
