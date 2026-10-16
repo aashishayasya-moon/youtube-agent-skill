@@ -1,0 +1,30 @@
+
+name: YouTube Agent - Cloud Test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  skill-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check Python environment
+        run: |
+          python --version
+          python -c "import json; print('YouTube Agent cloud runner is ready!')"
+
+      - name: List skill files
+        run: |
+          echo "Checking repository structure..."
+          find skills -maxdepth 3 -type f | head -80
